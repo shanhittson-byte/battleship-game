@@ -1,0 +1,1826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Battleship vs Sink Floyd</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', 'Courier', monospace;
+            background: linear-gradient(135deg, #1a237e 0%, #0d47a1 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 1400px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            font-weight: bold;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 1.2em;
+        }
+
+        .game-area {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .board-container {
+            flex: 1;
+            min-width: 300px;
+            max-width: 450px;
+        }
+
+        .board-title {
+            text-align: center;
+            font-size: 1.5em;
+            margin-bottom: 10px;
+            color: #333;
+            font-weight: bold;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 2px;
+            background: #ddd;
+            padding: 2px;
+            border-radius: 8px;
+            aspect-ratio: 1;
+        }
+
+        .cell {
+            background: #e3f2fd;
+            border: 1px solid #90caf9;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            aspect-ratio: 1;
+        }
+
+        .cell:hover {
+            background: #bbdefb;
+            transform: scale(1.05);
+        }
+
+        .cell.ship {
+            background: #78909c;
+            border-color: #546e7a;
+        }
+
+        .cell.miss {
+            background: #fff;
+            cursor: default;
+        }
+
+        .cell.miss::after {
+            content: '🌊';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.3em;
+        }
+
+        .cell.hit {
+            background: #ef5350;
+            border-color: #c62828;
+            cursor: default;
+            animation: hitPulse 0.5s;
+        }
+
+        .cell.hit::after {
+            content: '🚢';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.5em;
+        }
+
+        .cell.sunk {
+            background: #424242;
+            border-color: #212121;
+        }
+
+        .cell.fire {
+            animation: fireAnimation 0.6s ease-out;
+        }
+
+        @keyframes fireAnimation {
+            0% {
+                background: #ff9800;
+                box-shadow: 0 0 20px #ff5722;
+                transform: scale(1);
+            }
+            50% {
+                background: #ff5722;
+                box-shadow: 0 0 40px #ff9800;
+                transform: scale(1.3);
+            }
+            100% {
+                background: #ef5350;
+                box-shadow: 0 0 0px transparent;
+                transform: scale(1);
+            }
+        }
+
+        @keyframes hitPulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.1);
+            }
+        }
+
+        .cell.placement-preview {
+            background: #81c784 !important;
+            border-color: #4caf50 !important;
+        }
+
+        .cell.placement-invalid {
+            background: #e57373 !important;
+            border-color: #f44336 !important;
+        }
+
+        .stats-panel {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .stats-grid {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: nowrap;
+        }
+
+        .stat-box {
+            background: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 100px;
+            flex: 1;
+        }
+
+        .stat-box h3 {
+            font-size: 0.7em;
+            color: #666;
+            margin: 0;
+            white-space: nowrap;
+        }
+
+        .stat-box .value {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #1a237e;
+        }
+
+        .ships-status {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+        }
+
+        .ships-status h3 {
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 1.1em;
+        }
+
+        .ship-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 12px;
+            margin-bottom: 5px;
+            background: white;
+            border-radius: 5px;
+            font-size: 0.85em;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .ship-item.sunk {
+            opacity: 0.5;
+            text-decoration: line-through;
+        }
+
+        .ship-item .ship-name {
+            font-weight: bold;
+        }
+
+        .ship-item .ship-status {
+            color: #4caf50;
+        }
+
+        .ship-item.sunk .ship-status {
+            color: #f44336;
+        }
+
+        .shot-history {
+            margin-top: 15px;
+            max-height: 150px;
+            overflow-y: auto;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .shot-history h3 {
+            margin-bottom: 10px;
+            color: #333;
+            position: sticky;
+            top: 0;
+            background: white;
+            padding-bottom: 5px;
+        }
+
+        .shot-entry {
+            padding: 5px;
+            margin-bottom: 3px;
+            font-size: 0.85em;
+            border-left: 3px solid #1a237e;
+            padding-left: 8px;
+        }
+
+        .shot-entry.hit {
+            border-left-color: #ef5350;
+            background: #ffebee;
+        }
+
+        .shot-entry.miss {
+            border-left-color: #90a4ae;
+            background: #f5f5f5;
+        }
+
+        .controls {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            background: #1a237e;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1em;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 5px;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .btn:hover {
+            background: #0d47a1;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(26, 35, 126, 0.4);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #78909c;
+        }
+
+        .btn-secondary:hover {
+            background: #607d8b;
+        }
+
+        .difficulty-select {
+            font-family: 'Courier New', 'Courier', monospace;
+            padding: 8px 12px;
+            font-size: 1em;
+            border: 2px solid #1a237e;
+            border-radius: 6px;
+            background: white;
+            color: #333;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .difficulty-select:hover {
+            border-color: #0d47a1;
+            background: #f5f5f5;
+        }
+
+        .difficulty-select:focus {
+            outline: none;
+            border-color: #0d47a1;
+            box-shadow: 0 0 5px rgba(26, 35, 126, 0.3);
+        }
+
+        .message {
+            text-align: center;
+            font-size: 1.2em;
+            color: #333;
+            margin-bottom: 15px;
+            min-height: 30px;
+            font-weight: bold;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 400px;
+            animation: modalSlideIn 0.3s;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-content h2 {
+            margin-bottom: 20px;
+            color: #333;
+            font-size: 2em;
+        }
+
+        .modal-content p {
+            margin-bottom: 25px;
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .container {
+                padding: 15px;
+            }
+
+            h1 {
+                font-size: 1.5em;
+                letter-spacing: 2px;
+            }
+
+            .subtitle {
+                font-size: 1em;
+            }
+
+            .message {
+                font-size: 1em;
+                min-height: 40px;
+            }
+
+            .game-area {
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .board-container {
+                max-width: 100%;
+            }
+
+            .board-title {
+                font-size: 1.2em;
+            }
+
+            /* Make stats wrap on mobile */
+            .stats-grid {
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .stat-box {
+                flex: 1 1 calc(50% - 8px);
+                min-width: 140px;
+                padding: 10px;
+                gap: 8px;
+            }
+
+            .stat-box h3 {
+                font-size: 0.65em;
+            }
+
+            .stat-box .value {
+                font-size: 1em;
+            }
+
+            /* Larger touch targets for buttons */
+            .btn {
+                padding: 14px 20px;
+                font-size: 0.95em;
+                margin: 3px;
+                min-height: 44px;
+            }
+
+            /* Optimize ship status for mobile */
+            .ships-status {
+                padding: 12px;
+            }
+
+            .ships-status h3 {
+                font-size: 1em;
+            }
+
+            .ship-item {
+                padding: 10px;
+                font-size: 0.8em;
+            }
+
+            /* Shot history optimization */
+            .shot-history {
+                max-height: 120px;
+            }
+
+            .shot-history h3 {
+                font-size: 0.95em;
+            }
+
+            .shot-entry {
+                font-size: 0.75em;
+                padding: 4px;
+            }
+
+            /* Modal adjustments */
+            .modal-content {
+                padding: 30px 20px;
+                margin: 0 10px;
+            }
+
+            .modal-content h2 {
+                font-size: 1.5em;
+            }
+
+            .modal-content p {
+                font-size: 1em;
+            }
+
+            /* Larger cells for easier tapping */
+            .cell {
+                min-height: 30px;
+                min-width: 30px;
+            }
+        }
+
+        /* Extra small devices */
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.3em;
+                letter-spacing: 1px;
+            }
+
+            .container {
+                padding: 10px;
+            }
+
+            .stats-panel {
+                padding: 12px;
+            }
+
+            .stat-box {
+                flex: 1 1 100%;
+                min-width: 100%;
+            }
+
+            .btn {
+                padding: 12px 16px;
+                font-size: 0.85em;
+                width: 100%;
+                max-width: 300px;
+            }
+
+            .controls {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .board-title {
+                font-size: 1.1em;
+            }
+
+            .cell {
+                font-size: 0.9em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚓ Battleship</h1>
+        <p class="subtitle">vs Sink Floyd</p>
+
+        <div class="message" id="message">Ships placed randomly! Click "Start Game" or "Manual Placement" to arrange them yourself</div>
+
+        <div class="controls">
+            <div style="margin-bottom: 10px;">
+                <label for="difficulty" style="font-weight: bold; margin-right: 10px;">Difficulty:</label>
+                <select id="difficulty" class="difficulty-select">
+                    <option value="easy">Easy</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="hard">Hard</option>
+                </select>
+            </div>
+            <button class="btn" id="manualBtn">Manual Placement</button>
+            <button class="btn" id="rotateBtn" style="display:none;">Rotate Ship (R)</button>
+            <button class="btn btn-secondary" id="randomBtn" style="display:none;">Random Placement</button>
+            <button class="btn" id="startBtn">Start Game</button>
+            <button class="btn btn-secondary" id="resetBtn">Reset Game</button>
+        </div>
+
+        <div class="stats-panel">
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <h3>Your Shots</h3>
+                    <div class="value" id="playerShots">0</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Your Hits</h3>
+                    <div class="value" id="playerHits">0</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Your Accuracy</h3>
+                    <div class="value" id="playerAccuracy">0%</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Sink Floyd's Shots</h3>
+                    <div class="value" id="computerShots">0</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Sink Floyd's Hits</h3>
+                    <div class="value" id="computerHits">0</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Sink Floyd's Accuracy</h3>
+                    <div class="value" id="computerAccuracy">0%</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="game-area">
+            <div class="board-container">
+                <div class="board-title">Your Board</div>
+                <div class="board" id="playerBoard"></div>
+                <div class="ships-status">
+                    <h3>Your Fleet</h3>
+                    <div id="playerShipsStatus"></div>
+                </div>
+            </div>
+            <div class="board-container">
+                <div class="board-title">Sink Floyd's Board</div>
+                <div class="board" id="computerBoard"></div>
+                <div class="ships-status">
+                    <h3>Sink Floyd's Fleet</h3>
+                    <div id="computerShipsStatus"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-panel">
+            <div class="shot-history">
+                <h3>Shot History</h3>
+                <div id="shotHistory"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="gameOverModal">
+        <div class="modal-content">
+            <h2 id="modalTitle">Game Over</h2>
+            <p id="modalMessage"></p>
+            <button class="btn" id="playAgainBtn">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        const BOARD_SIZE = 10;
+        const SHIPS = [
+            { name: 'Carrier', size: 5 },
+            { name: 'Battleship', size: 4 },
+            { name: 'Cruiser', size: 3 },
+            { name: 'Submarine', size: 3 },
+            { name: 'Destroyer', size: 2 }
+        ];
+
+        class Game {
+            constructor() {
+                this.playerBoard = this.createBoard();
+                this.computerBoard = this.createBoard();
+                this.playerShips = [];
+                this.computerShips = [];
+                this.currentShipIndex = 0;
+                this.isHorizontal = true;
+                this.gameStarted = false;
+                this.playerTurn = true;
+                this.stats = {
+                    playerShots: 0,
+                    playerHits: 0,
+                    computerShots: 0,
+                    computerHits: 0
+                };
+                this.shotHistory = [];
+                
+                // AI state tracking
+                this.aiMode = 'search'; // 'search', 'hunt', 'target'
+                this.aiHitStack = []; // Stack of hits to investigate
+                this.aiCurrentTarget = null; // Current ship being hunted
+                this.aiTargetDirection = null; // 'horizontal' or 'vertical'
+                this.aiLastHit = null; // Last successful hit
+                
+                this.manualPlacementMode = false; // Track if user wants manual placement
+                this.difficulty = 'medium'; // Default difficulty
+                
+                this.init();
+            }
+
+            createBoard() {
+                return Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null));
+            }
+
+            init() {
+                this.renderBoard('playerBoard', this.playerBoard, true);
+                this.renderBoard('computerBoard', this.computerBoard, false);
+                this.setupEventListeners();
+                
+                // Auto-place ships by default
+                this.randomPlacement();
+                this.updateMessage('Ships placed randomly! Click "Start Game" or "Manual Placement" to arrange them yourself');
+                this.updateShipsStatus();
+            }
+
+            setupEventListeners() {
+                // Add both click and touch events for better mobile support
+                this.addButtonListener('manualBtn', () => this.enableManualPlacement());
+                this.addButtonListener('rotateBtn', () => this.rotate());
+                this.addButtonListener('randomBtn', () => this.randomPlacement());
+                this.addButtonListener('startBtn', () => this.startGame());
+                this.addButtonListener('resetBtn', () => this.reset());
+                this.addButtonListener('playAgainBtn', () => this.reset());
+                
+                // Difficulty selector
+                document.getElementById('difficulty').addEventListener('change', (e) => {
+                    this.difficulty = e.target.value;
+                    this.reset();
+                });
+                
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'r' || e.key === 'R') {
+                        this.rotate();
+                    }
+                });
+            }
+
+            addButtonListener(buttonId, callback) {
+                const button = document.getElementById(buttonId);
+                if (!button) return;
+                
+                // Click event for desktop
+                button.addEventListener('click', callback);
+                
+                // Touch event for mobile (faster response)
+                button.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    if (!button.disabled) {
+                        callback();
+                    }
+                });
+            }
+
+            renderBoard(elementId, board, isPlayerBoard) {
+                const boardElement = document.getElementById(elementId);
+                if (!boardElement) {
+                    console.error(`Board element not found: ${elementId}`);
+                    return;
+                }
+                
+                boardElement.innerHTML = '';
+                
+                for (let row = 0; row < BOARD_SIZE; row++) {
+                    for (let col = 0; col < BOARD_SIZE; col++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'cell';
+                        cell.dataset.row = row;
+                        cell.dataset.col = col;
+
+                        if (isPlayerBoard) {
+                            cell.addEventListener('click', () => this.handlePlayerBoardClick(row, col));
+                            cell.addEventListener('mouseenter', () => this.handlePlayerBoardHover(row, col));
+                            cell.addEventListener('mouseleave', () => this.clearPreview());
+                            
+                            // Touch support for mobile
+                            cell.addEventListener('touchstart', (e) => {
+                                e.preventDefault();
+                                this.handlePlayerBoardHover(row, col);
+                            });
+                            cell.addEventListener('touchend', (e) => {
+                                e.preventDefault();
+                                this.handlePlayerBoardClick(row, col);
+                                this.clearPreview();
+                            });
+                            cell.addEventListener('touchmove', (e) => {
+                                e.preventDefault();
+                                const touch = e.touches[0];
+                                const element = document.elementFromPoint(touch.clientX, touch.clientY);
+                                if (element && element.classList.contains('cell')) {
+                                    const touchRow = parseInt(element.dataset.row);
+                                    const touchCol = parseInt(element.dataset.col);
+                                    this.handlePlayerBoardHover(touchRow, touchCol);
+                                }
+                            });
+                            
+                            if (board[row][col] && board[row][col].ship) {
+                                cell.classList.add('ship');
+                            }
+                        } else {
+                            cell.addEventListener('click', () => this.handleComputerBoardClick(row, col));
+                            
+                            // Touch support for computer board
+                            cell.addEventListener('touchend', (e) => {
+                                e.preventDefault();
+                                this.handleComputerBoardClick(row, col);
+                            });
+                        }
+
+                        if (board[row][col] && board[row][col].hit) {
+                            cell.classList.add('hit');
+                            if (board[row][col].ship && this.isShipSunk(board, board[row][col].ship)) {
+                                cell.classList.add('sunk');
+                            }
+                        } else if (board[row][col] && board[row][col].miss) {
+                            cell.classList.add('miss');
+                        }
+
+                        boardElement.appendChild(cell);
+                    }
+                }
+            }
+
+            handlePlayerBoardClick(row, col) {
+                if (this.gameStarted || !this.manualPlacementMode || this.currentShipIndex >= SHIPS.length) return;
+
+                const ship = SHIPS[this.currentShipIndex];
+                if (this.canPlaceShip(this.playerBoard, row, col, ship.size, this.isHorizontal)) {
+                    this.placeShip(this.playerBoard, row, col, ship, this.isHorizontal, this.playerShips);
+                    this.currentShipIndex++;
+                    this.renderBoard('playerBoard', this.playerBoard, true);
+                    
+                    if (this.currentShipIndex >= SHIPS.length) {
+                        this.updateMessage('All ships placed! Click "Start Game" to begin');
+                        document.getElementById('startBtn').disabled = false;
+                        document.getElementById('rotateBtn').style.display = 'none';
+                        document.getElementById('randomBtn').style.display = 'none';
+                        document.getElementById('manualBtn').style.display = 'inline-block';
+                    } else {
+                        this.updateMessage(`Place your ${SHIPS[this.currentShipIndex].name} (${SHIPS[this.currentShipIndex].size} cells)`);
+                    }
+                    this.updateShipsStatus();
+                }
+            }
+
+            handlePlayerBoardHover(row, col) {
+                if (this.gameStarted || !this.manualPlacementMode || this.currentShipIndex >= SHIPS.length) return;
+
+                this.clearPreview();
+                const ship = SHIPS[this.currentShipIndex];
+                const canPlace = this.canPlaceShip(this.playerBoard, row, col, ship.size, this.isHorizontal);
+                
+                for (let i = 0; i < ship.size; i++) {
+                    const r = this.isHorizontal ? row : row + i;
+                    const c = this.isHorizontal ? col + i : col;
+                    
+                    if (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE) {
+                        const cell = document.querySelector(`#playerBoard .cell[data-row="${r}"][data-col="${c}"]`);
+                        if (cell) {
+                            cell.classList.add(canPlace ? 'placement-preview' : 'placement-invalid');
+                        }
+                    }
+                }
+            }
+
+            clearPreview() {
+                document.querySelectorAll('#playerBoard .cell').forEach(cell => {
+                    cell.classList.remove('placement-preview', 'placement-invalid');
+                });
+            }
+
+            handleComputerBoardClick(row, col) {
+                if (!this.gameStarted || !this.playerTurn) return;
+                if (this.computerBoard[row][col] && (this.computerBoard[row][col].hit || this.computerBoard[row][col].miss)) return;
+
+                this.playerTurn = false;
+                this.stats.playerShots++;
+                
+                const cell = document.querySelector(`#computerBoard .cell[data-row="${row}"][data-col="${col}"]`);
+                
+                if (this.computerBoard[row][col] && this.computerBoard[row][col].ship) {
+                    this.computerBoard[row][col].hit = true;
+                    this.stats.playerHits++;
+                    cell.classList.add('fire');
+                    
+                    setTimeout(() => {
+                        this.renderBoard('computerBoard', this.computerBoard, false);
+                        
+                        const ship = this.computerBoard[row][col].ship;
+                        if (this.isShipSunk(this.computerBoard, ship)) {
+                            this.addToHistory(`You sunk Sink Floyd's ${ship.name}!`, 'hit');
+                            this.updateMessage(`You sunk Sink Floyd's ${ship.name}!`);
+                        } else {
+                            this.addToHistory(`You hit at (${row}, ${col})`, 'hit');
+                            this.updateMessage('Hit! 🔥');
+                        }
+                        
+                        this.updateStats();
+                        this.updateShipsStatus();
+                        
+                        if (this.checkWin(this.computerBoard)) {
+                            this.endGame(true);
+                        } else {
+                            setTimeout(() => this.computerTurn(), 1000);
+                        }
+                    }, 600);
+                } else {
+                    this.computerBoard[row][col] = { miss: true };
+                    this.renderBoard('computerBoard', this.computerBoard, false);
+                    this.addToHistory(`You missed at (${row}, ${col})`, 'miss');
+                    this.updateMessage('Miss!');
+                    this.updateStats();
+                    setTimeout(() => this.computerTurn(), 1000);
+                }
+            }
+
+            computerTurn() {
+                if (!this.gameStarted) return;
+
+                this.updateMessage('Sink Floyd is thinking...');
+                
+                setTimeout(() => {
+                    const target = this.getAITarget();
+                    const row = target.row;
+                    const col = target.col;
+
+                    this.stats.computerShots++;
+                    
+                    const cell = document.querySelector(`#playerBoard .cell[data-row="${row}"][data-col="${col}"]`);
+                    
+                    if (this.playerBoard[row][col] && this.playerBoard[row][col].ship) {
+                        this.playerBoard[row][col].hit = true;
+                        this.stats.computerHits++;
+                        cell.classList.add('fire');
+                        
+                        // Record the hit for AI tracking
+                        this.aiLastHit = { row, col };
+                        this.handleAIHit(row, col);
+                        
+                        setTimeout(() => {
+                            this.renderBoard('playerBoard', this.playerBoard, true);
+                            
+                            const ship = this.playerBoard[row][col].ship;
+                            if (this.isShipSunk(this.playerBoard, ship)) {
+                                this.addToHistory(`Sink Floyd sunk your ${ship.name}!`, 'hit');
+                                this.updateMessage(`Sink Floyd sunk your ${ship.name}!`);
+                                this.handleAIShipSunk(ship);
+                            } else {
+                                this.addToHistory(`Sink Floyd hit at (${row}, ${col})`, 'hit');
+                                this.updateMessage('Sink Floyd hit your ship! 💥');
+                            }
+                            
+                            this.updateStats();
+                            this.updateShipsStatus();
+                            
+                            if (this.checkWin(this.playerBoard)) {
+                                this.endGame(false);
+                            } else {
+                                this.playerTurn = true;
+                                this.updateMessage('Your turn!');
+                            }
+                        }, 600);
+                    } else {
+                        this.playerBoard[row][col] = { miss: true };
+                        this.renderBoard('playerBoard', this.playerBoard, true);
+                        this.addToHistory(`Sink Floyd missed at (${row}, ${col})`, 'miss');
+                        this.updateMessage('Sink Floyd missed!');
+                        this.handleAIMiss(row, col);
+                        this.updateStats();
+                        this.playerTurn = true;
+                        setTimeout(() => this.updateMessage('Your turn!'), 1000);
+                    }
+                }, 1000);
+            }
+
+            getAITarget() {
+                // Target mode: Continue in a known direction
+                if (this.aiMode === 'target' && this.aiTargetDirection && this.aiCurrentTarget) {
+                    const target = this.getDirectionalTarget();
+                    if (target) return target;
+                    
+                    // If no valid target in current direction, switch to hunt mode
+                    this.aiMode = 'hunt';
+                }
+
+                // Hunt mode: Investigate adjacent cells to known hits
+                if (this.aiMode === 'hunt' && this.aiHitStack.length > 0) {
+                    const target = this.getAdjacentTarget();
+                    if (target) return target;
+                    
+                    // If no adjacent targets, return to search mode
+                    this.aiMode = 'search';
+                }
+
+                // Search mode: Use probability map with checkerboard pattern
+                return this.getProbabilityTarget();
+            }
+
+            getDirectionalTarget() {
+                if (!this.aiCurrentTarget || !this.aiTargetDirection) return null;
+
+                const { row, col } = this.aiCurrentTarget;
+                const targets = [];
+
+                if (this.aiTargetDirection === 'horizontal') {
+                    // Try extending left and right
+                    if (this.isValidTarget(row, col - 1)) targets.push({ row, col: col - 1, priority: 10 });
+                    if (this.isValidTarget(row, col + 1)) targets.push({ row, col: col + 1, priority: 10 });
+                } else if (this.aiTargetDirection === 'vertical') {
+                    // Try extending up and down
+                    if (this.isValidTarget(row - 1, col)) targets.push({ row: row - 1, col, priority: 10 });
+                    if (this.isValidTarget(row + 1, col)) targets.push({ row: row + 1, col, priority: 10 });
+                }
+
+                return targets.length > 0 ? targets[0] : null;
+            }
+
+            getAdjacentTarget() {
+                // Get the most recent unsunk hit
+                for (const hit of this.aiHitStack) {
+                    const adjacent = this.getAdjacentCells(hit.row, hit.col);
+                    const validTargets = adjacent.filter(cell => this.isValidTarget(cell.row, cell.col));
+                    
+                    if (validTargets.length > 0) {
+                        // Prioritize based on alignment with other hits
+                        const weighted = this.weightAdjacentTargets(validTargets, hit);
+                        return weighted[0];
+                    }
+                }
+                
+                return null;
+            }
+
+            weightAdjacentTargets(targets, sourceHit) {
+                // Check if there are other hits that suggest a direction
+                const otherHits = this.aiHitStack.filter(h => h.row !== sourceHit.row || h.col !== sourceHit.col);
+                
+                return targets.map(target => {
+                    let weight = 1;
+                    
+                    // Check for alignment with other hits
+                    for (const otherHit of otherHits) {
+                        // Horizontal alignment
+                        if (target.row === sourceHit.row && target.row === otherHit.row) {
+                            weight += 5;
+                        }
+                        // Vertical alignment
+                        if (target.col === sourceHit.col && target.col === otherHit.col) {
+                            weight += 5;
+                        }
+                    }
+                    
+                    return { ...target, weight };
+                }).sort((a, b) => b.weight - a.weight);
+            }
+
+            getProbabilityTarget() {
+                const probabilityMap = this.calculateProbabilityMap();
+                
+                // Add noise to probability map to prevent repetitive patterns
+                const noisyMap = this.addNoiseToProbabilityMap(probabilityMap);
+                
+                // Collect all valid targets with their probabilities
+                const targets = [];
+                for (let row = 0; row < BOARD_SIZE; row++) {
+                    for (let col = 0; col < BOARD_SIZE; col++) {
+                        if (!this.isValidTarget(row, col)) continue;
+                        targets.push({ row, col, prob: noisyMap[row][col] });
+                    }
+                }
+                
+                if (targets.length === 0) return this.getRandomTarget();
+                
+                // Sort by probability
+                targets.sort((a, b) => b.prob - a.prob);
+                
+                // Use weighted random selection from top candidates
+                // This adds unpredictability while still favoring high-probability targets
+                const topPercentile = Math.max(1, Math.ceil(targets.length * 0.15)); // Top 15%
+                const topTargets = targets.slice(0, topPercentile);
+                
+                // Weighted random selection (higher probability = higher chance)
+                const totalWeight = topTargets.reduce((sum, t) => sum + t.prob, 0);
+                let random = Math.random() * totalWeight;
+                
+                for (const target of topTargets) {
+                    random -= target.prob;
+                    if (random <= 0) {
+                        return { row: target.row, col: target.col };
+                    }
+                }
+                
+                // Fallback to first target
+                return { row: topTargets[0].row, col: topTargets[0].col };
+            }
+
+            addNoiseToProbabilityMap(map) {
+                // Add Gaussian noise to probability map
+                const noisyMap = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(0));
+                
+                // Adjust noise based on difficulty
+                const noiseMultiplier = this.difficulty === 'easy' ? 0.3 : 
+                                       this.difficulty === 'medium' ? 0.15 : 0.05;
+                
+                for (let row = 0; row < BOARD_SIZE; row++) {
+                    for (let col = 0; col < BOARD_SIZE; col++) {
+                        // Base probability
+                        let prob = map[row][col];
+                        
+                        if (prob > 0) {
+                            // Add Gaussian noise (Box-Muller transform)
+                            const u1 = Math.random();
+                            const u2 = Math.random();
+                            const gaussianNoise = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+                            
+                            // Scale noise based on difficulty
+                            const noiseScale = prob * noiseMultiplier;
+                            prob += gaussianNoise * noiseScale;
+                            
+                            // Add small random jitter to break ties
+                            prob += Math.random() * 0.5;
+                            
+                            // Ensure non-negative
+                            prob = Math.max(0, prob);
+                        } else {
+                            // Intuition shots - more on Easy, fewer on Hard
+                            prob = Math.random() * (this.difficulty === 'easy' ? 0.3 : 
+                                                   this.difficulty === 'medium' ? 0.1 : 0.05);
+                        }
+                        
+                        noisyMap[row][col] = prob;
+                    }
+                }
+                
+                return noisyMap;
+            }
+
+            calculateProbabilityMap() {
+                const map = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(0));
+                
+                // Get remaining ship sizes
+                const remainingShips = this.playerShips.filter(ship => 
+                    !this.isShipSunk(this.playerBoard, ship)
+                ).map(ship => ship.size);
+                
+                // For each remaining ship size, calculate where it could fit
+                for (const shipSize of remainingShips) {
+                    // Try horizontal placements
+                    for (let row = 0; row < BOARD_SIZE; row++) {
+                        for (let col = 0; col <= BOARD_SIZE - shipSize; col++) {
+                            if (this.canAIPlaceShip(row, col, shipSize, true)) {
+                                const weight = this.getPlacementWeight(row, col, shipSize, true);
+                                for (let i = 0; i < shipSize; i++) {
+                                    map[row][col + i] += weight;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Try vertical placements
+                    for (let row = 0; row <= BOARD_SIZE - shipSize; row++) {
+                        for (let col = 0; col < BOARD_SIZE; col++) {
+                            if (this.canAIPlaceShip(row, col, shipSize, false)) {
+                                const weight = this.getPlacementWeight(row, col, shipSize, false);
+                                for (let i = 0; i < shipSize; i++) {
+                                    map[row + i][col] += weight;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Apply checkerboard pattern bonus in search mode with randomness
+                if (this.aiMode === 'search') {
+                    for (let row = 0; row < BOARD_SIZE; row++) {
+                        for (let col = 0; col < BOARD_SIZE; col++) {
+                            if ((row + col) % 2 === 0) {
+                                // Vary the checkerboard bonus (1.1 to 1.3)
+                                const bonus = 1.1 + Math.random() * 0.2;
+                                map[row][col] *= bonus;
+                            }
+                        }
+                    }
+                }
+                
+                return map;
+            }
+
+            getPlacementWeight(row, col, size, isHorizontal) {
+                let weight = 1;
+                let hasAdjacentHit = false;
+                
+                // Check if this placement would include any known hits
+                for (let i = 0; i < size; i++) {
+                    const r = isHorizontal ? row : row + i;
+                    const c = isHorizontal ? col + i : col;
+                    
+                    if (this.playerBoard[r][c] && this.playerBoard[r][c].hit && !this.playerBoard[r][c].ship.sunk) {
+                        hasAdjacentHit = true;
+                        weight += 10; // High weight for placements that explain existing hits
+                    }
+                }
+                
+                // If we have hits in a direction, weight that direction more heavily
+                if (hasAdjacentHit && this.aiHitStack.length > 1) {
+                    const hits = this.aiHitStack;
+                    const horizontalAlignment = hits.every(h => h.row === hits[0].row);
+                    const verticalAlignment = hits.every(h => h.col === hits[0].col);
+                    
+                    if (isHorizontal && horizontalAlignment) {
+                        weight *= 3;
+                    } else if (!isHorizontal && verticalAlignment) {
+                        weight *= 3;
+                    }
+                }
+                
+                return weight;
+            }
+
+            canAIPlaceShip(row, col, size, isHorizontal) {
+                for (let i = 0; i < size; i++) {
+                    const r = isHorizontal ? row : row + i;
+                    const c = isHorizontal ? col + i : col;
+                    
+                    if (r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE) return false;
+                    
+                    const cell = this.playerBoard[r][c];
+                    // Can't place where we've already missed
+                    if (cell && cell.miss) return false;
+                    // Can't place where we've sunk a ship
+                    if (cell && cell.hit && cell.ship && this.isShipSunk(this.playerBoard, cell.ship)) return false;
+                }
+                return true;
+            }
+
+            handleAIHit(row, col) {
+                // Add to hit stack
+                this.aiHitStack.push({ row, col });
+                
+                // Determine if we've found a direction
+                if (this.aiHitStack.length >= 2) {
+                    const lastTwo = this.aiHitStack.slice(-2);
+                    if (lastTwo[0].row === lastTwo[1].row) {
+                        // Horizontal alignment
+                        this.aiMode = 'target';
+                        this.aiTargetDirection = 'horizontal';
+                        this.aiCurrentTarget = { row, col };
+                    } else if (lastTwo[0].col === lastTwo[1].col) {
+                        // Vertical alignment
+                        this.aiMode = 'target';
+                        this.aiTargetDirection = 'vertical';
+                        this.aiCurrentTarget = { row, col };
+                    } else {
+                        // Not aligned, stay in hunt mode
+                        this.aiMode = 'hunt';
+                    }
+                } else {
+                    // First hit, enter hunt mode
+                    this.aiMode = 'hunt';
+                    this.aiCurrentTarget = { row, col };
+                }
+            }
+
+            handleAIMiss(row, col) {
+                // If we were in target mode and missed, try the opposite direction
+                if (this.aiMode === 'target' && this.aiHitStack.length > 0) {
+                    // Switch back to hunt mode to try other directions
+                    this.aiMode = 'hunt';
+                }
+            }
+
+            handleAIShipSunk(ship) {
+                // Remove all hits from this ship from the hit stack
+                const shipPositions = ship.positions;
+                this.aiHitStack = this.aiHitStack.filter(hit => 
+                    !shipPositions.some(pos => pos.row === hit.row && pos.col === hit.col)
+                );
+                
+                // Reset AI state
+                if (this.aiHitStack.length === 0) {
+                    this.aiMode = 'search';
+                    this.aiCurrentTarget = null;
+                    this.aiTargetDirection = null;
+                } else {
+                    // Still have other hits to investigate
+                    this.aiMode = 'hunt';
+                    this.aiCurrentTarget = this.aiHitStack[this.aiHitStack.length - 1];
+                    this.aiTargetDirection = null;
+                }
+            }
+
+            getAdjacentCells(row, col) {
+                const adjacent = [];
+                const directions = [
+                    { row: row - 1, col },     // up
+                    { row: row + 1, col },     // down
+                    { row, col: col - 1 },     // left
+                    { row, col: col + 1 }      // right
+                ];
+                
+                for (const dir of directions) {
+                    if (dir.row >= 0 && dir.row < BOARD_SIZE && dir.col >= 0 && dir.col < BOARD_SIZE) {
+                        adjacent.push(dir);
+                    }
+                }
+                
+                return adjacent;
+            }
+
+            isValidTarget(row, col) {
+                if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE) return false;
+                const cell = this.playerBoard[row][col];
+                return !cell || (!cell.hit && !cell.miss);
+            }
+
+            getRandomTarget() {
+                const validCells = [];
+                for (let row = 0; row < BOARD_SIZE; row++) {
+                    for (let col = 0; col < BOARD_SIZE; col++) {
+                        if (this.isValidTarget(row, col)) {
+                            validCells.push({ row, col });
+                        }
+                    }
+                }
+                return validCells.length > 0 
+                    ? validCells[Math.floor(Math.random() * validCells.length)]
+                    : { row: 0, col: 0 };
+            }
+
+            canPlaceShip(board, row, col, size, isHorizontal) {
+                for (let i = 0; i < size; i++) {
+                    const r = isHorizontal ? row : row + i;
+                    const c = isHorizontal ? col + i : col;
+                    
+                    if (r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE) return false;
+                    if (board[r][c] && board[r][c].ship) return false;
+                }
+                return true;
+            }
+
+            placeShip(board, row, col, shipData, isHorizontal, shipsList) {
+                const ship = { ...shipData, positions: [], hits: 0 };
+                
+                for (let i = 0; i < shipData.size; i++) {
+                    const r = isHorizontal ? row : row + i;
+                    const c = isHorizontal ? col + i : col;
+                    board[r][c] = { ship };
+                    ship.positions.push({ row: r, col: c });
+                }
+                
+                shipsList.push(ship);
+            }
+
+            isShipSunk(board, ship) {
+                return ship.positions.every(pos => board[pos.row][pos.col].hit);
+            }
+
+            checkWin(board) {
+                return board.flat().filter(cell => cell && cell.ship).every(cell => cell.hit);
+            }
+
+            enableManualPlacement() {
+                if (this.gameStarted) return;
+                
+                // Clear existing ships
+                this.playerBoard = this.createBoard();
+                this.playerShips = [];
+                this.currentShipIndex = 0;
+                this.manualPlacementMode = true;
+                
+                // Show manual placement controls
+                document.getElementById('manualBtn').style.display = 'none';
+                document.getElementById('rotateBtn').style.display = 'inline-block';
+                document.getElementById('randomBtn').style.display = 'inline-block';
+                document.getElementById('startBtn').disabled = true;
+                
+                this.renderBoard('playerBoard', this.playerBoard, true);
+                this.updateMessage(`Place your ${SHIPS[0].name} (${SHIPS[0].size} cells)`);
+                this.updateShipsStatus();
+            }
+
+            rotate() {
+                if (this.gameStarted || !this.manualPlacementMode) return;
+                this.isHorizontal = !this.isHorizontal;
+                this.updateMessage(`Orientation: ${this.isHorizontal ? 'Horizontal' : 'Vertical'}`);
+            }
+
+            randomPlacement() {
+                if (this.gameStarted) return;
+                
+                this.playerBoard = this.createBoard();
+                this.playerShips = [];
+                this.currentShipIndex = 0;
+
+                // Use strategic placement on Hard difficulty
+                if (this.difficulty === 'hard') {
+                    this.strategicPlacePlayerShips();
+                } else {
+                    // Random placement for Easy and Medium
+                    for (const ship of SHIPS) {
+                        let placed = false;
+                        while (!placed) {
+                            const row = Math.floor(Math.random() * BOARD_SIZE);
+                            const col = Math.floor(Math.random() * BOARD_SIZE);
+                            const isHorizontal = Math.random() < 0.5;
+                            
+                            if (this.canPlaceShip(this.playerBoard, row, col, ship.size, isHorizontal)) {
+                                this.placeShip(this.playerBoard, row, col, ship, isHorizontal, this.playerShips);
+                                placed = true;
+                            }
+                        }
+                    }
+                }
+
+                this.currentShipIndex = SHIPS.length;
+                this.manualPlacementMode = false;
+                this.renderBoard('playerBoard', this.playerBoard, true);
+                this.updateMessage('All ships placed! Click "Start Game" to begin');
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('rotateBtn').style.display = 'none';
+                document.getElementById('randomBtn').style.display = 'none';
+                document.getElementById('manualBtn').style.display = 'inline-block';
+                this.updateShipsStatus();
+            }
+
+            strategicPlacePlayerShips() {
+                // Use same strategic algorithm as computer for Hard difficulty
+                const placementScores = [];
+                
+                for (let row = 0; row < BOARD_SIZE; row++) {
+                    for (let col = 0; col < BOARD_SIZE; col++) {
+                        for (const isHorizontal of [true, false]) {
+                            placementScores.push({
+                                row, col, isHorizontal,
+                                score: this.calculatePlayerPlacementScore(row, col, isHorizontal)
+                            });
+                        }
+                    }
+                }
+                
+                const sortedShips = [...SHIPS].sort((a, b) => b.size - a.size);
+                
+                for (const ship of sortedShips) {
+                    let placed = false;
+                    let attempts = 0;
+                    
+                    while (!placed && attempts < 100) {
+                        let placement;
+                        
+                        if (attempts < 20) {
+                            const validPlacements = placementScores.filter(p => 
+                                this.canPlaceShip(this.playerBoard, p.row, p.col, ship.size, p.isHorizontal)
+                            );
+                            
+                            if (validPlacements.length > 0) {
+                                validPlacements.sort((a, b) => b.score - a.score);
+                                const topChoices = validPlacements.slice(0, Math.min(10, validPlacements.length));
+                                placement = topChoices[Math.floor(Math.random() * topChoices.length)];
+                            }
+                        } else {
+                            placement = {
+                                row: Math.floor(Math.random() * BOARD_SIZE),
+                                col: Math.floor(Math.random() * BOARD_SIZE),
+                                isHorizontal: Math.random() < 0.5
+                            };
+                        }
+                        
+                        if (placement && this.canPlaceShip(this.playerBoard, placement.row, placement.col, ship.size, placement.isHorizontal)) {
+                            this.placeShip(this.playerBoard, placement.row, placement.col, ship, placement.isHorizontal, this.playerShips);
+                            placed = true;
+                        }
+                        
+                        attempts++;
+                    }
+                }
+            }
+
+            calculatePlayerPlacementScore(row, col, isHorizontal) {
+                // Same scoring as computer placement
+                let score = 0;
+                
+                if (row === 0 || row === BOARD_SIZE - 1) score += 15;
+                if (col === 0 || col === BOARD_SIZE - 1) score += 15;
+                
+                if ((row === 0 || row === BOARD_SIZE - 1) && (col === 0 || col === BOARD_SIZE - 1)) {
+                    score += 20;
+                }
+                
+                const centerRow = BOARD_SIZE / 2;
+                const centerCol = BOARD_SIZE / 2;
+                const distanceFromCenter = Math.abs(row - centerRow) + Math.abs(col - centerCol);
+                score += distanceFromCenter * 2;
+                
+                let nearbyShips = 0;
+                for (let r = Math.max(0, row - 2); r < Math.min(BOARD_SIZE, row + 3); r++) {
+                    for (let c = Math.max(0, col - 2); c < Math.min(BOARD_SIZE, col + 3); c++) {
+                        if (this.playerBoard[r][c] && this.playerBoard[r][c].ship) {
+                            nearbyShips++;
+                        }
+                    }
+                }
+                score -= nearbyShips * 10;
+                
+                let horizontalCount = 0;
+                let verticalCount = 0;
+                for (const ship of this.playerShips) {
+                    if (ship.positions.length > 1) {
+                        if (ship.positions[0].row === ship.positions[1].row) {
+                            horizontalCount++;
+                        } else {
+                            verticalCount++;
+                        }
+                    }
+                }
+                
+                if (isHorizontal && verticalCount > horizontalCount) score += 10;
+                if (!isHorizontal && horizontalCount > verticalCount) score += 10;
+                
+                score += Math.random() * 10;
+                
+                return score;
+            }
+
+            startGame() {
+                if (this.currentShipIndex < SHIPS.length) return;
+
+                // Place computer ships strategically
+                this.strategicPlaceComputerShips();
+
+                this.gameStarted = true;
+                this.playerTurn = true;
+                this.updateMessage('Game started! Click on Sink Floyd\'s board to fire');
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('rotateBtn').disabled = true;
+                document.getElementById('randomBtn').disabled = true;
+                this.updateShipsStatus();
+            }
+
+            strategicPlaceComputerShips() {
+                // Strategic placement algorithm for AI ships
+                // Prioritizes: edges, corners, spacing, and avoiding clustering
+                
+                const placementScores = [];
+                
+                // Calculate placement scores for all possible positions
+                for (let row = 0; row < BOARD_SIZE; row++) {
+                    for (let col = 0; col < BOARD_SIZE; col++) {
+                        for (const isHorizontal of [true, false]) {
+                            placementScores.push({
+                                row,
+                                col,
+                                isHorizontal,
+                                score: this.calculatePlacementScore(row, col, isHorizontal)
+                            });
+                        }
+                    }
+                }
+                
+                // Sort ships by size (largest first for better strategic placement)
+                const sortedShips = [...SHIPS].sort((a, b) => b.size - a.size);
+                
+                for (const ship of sortedShips) {
+                    let placed = false;
+                    let attempts = 0;
+                    const maxAttempts = 100;
+                    
+                    // Try to place ship in high-scoring positions
+                    while (!placed && attempts < maxAttempts) {
+                        let placement;
+                        
+                        if (attempts < 20) {
+                            // First 20 attempts: use strategic placement
+                            const validPlacements = placementScores.filter(p => 
+                                this.canPlaceShip(this.computerBoard, p.row, p.col, ship.size, p.isHorizontal)
+                            );
+                            
+                            if (validPlacements.length > 0) {
+                                // Sort by score and add randomness to top choices
+                                validPlacements.sort((a, b) => b.score - a.score);
+                                
+                                // Randomly select from top 15-25% of choices (varies each game)
+                                const percentile = 0.15 + Math.random() * 0.10; // 15-25%
+                                const topCount = Math.max(5, Math.ceil(validPlacements.length * percentile));
+                                const topChoices = validPlacements.slice(0, topCount);
+                                
+                                // Weighted random selection (higher scores more likely but not guaranteed)
+                                const totalScore = topChoices.reduce((sum, p) => sum + p.score, 0);
+                                let random = Math.random() * totalScore;
+                                
+                                for (const choice of topChoices) {
+                                    random -= choice.score;
+                                    if (random <= 0) {
+                                        placement = choice;
+                                        break;
+                                    }
+                                }
+                                
+                                // Fallback if weighted selection fails
+                                if (!placement) {
+                                    placement = topChoices[Math.floor(Math.random() * topChoices.length)];
+                                }
+                            }
+                        } else {
+                            // Fallback to random placement
+                            placement = {
+                                row: Math.floor(Math.random() * BOARD_SIZE),
+                                col: Math.floor(Math.random() * BOARD_SIZE),
+                                isHorizontal: Math.random() < 0.5
+                            };
+                        }
+                        
+                        if (placement && this.canPlaceShip(this.computerBoard, placement.row, placement.col, ship.size, placement.isHorizontal)) {
+                            this.placeShip(this.computerBoard, placement.row, placement.col, ship, placement.isHorizontal, this.computerShips);
+                            placed = true;
+                        }
+                        
+                        attempts++;
+                    }
+                }
+            }
+
+            calculatePlacementScore(row, col, isHorizontal) {
+                let score = 0;
+                
+                // 1. Edge bonus (ships on edges are harder to find)
+                if (row === 0 || row === BOARD_SIZE - 1) score += 15;
+                if (col === 0 || col === BOARD_SIZE - 1) score += 15;
+                
+                // 2. Corner bonus (corners are least likely to be targeted early)
+                if ((row === 0 || row === BOARD_SIZE - 1) && (col === 0 || col === BOARD_SIZE - 1)) {
+                    score += 20;
+                }
+                
+                // 3. Avoid center (center is often targeted first)
+                const centerRow = BOARD_SIZE / 2;
+                const centerCol = BOARD_SIZE / 2;
+                const distanceFromCenter = Math.abs(row - centerRow) + Math.abs(col - centerCol);
+                score += distanceFromCenter * 2;
+                
+                // 4. Spacing bonus (avoid clustering with existing ships)
+                let nearbyShips = 0;
+                for (let r = Math.max(0, row - 2); r < Math.min(BOARD_SIZE, row + 3); r++) {
+                    for (let c = Math.max(0, col - 2); c < Math.min(BOARD_SIZE, col + 3); c++) {
+                        if (this.computerBoard[r][c] && this.computerBoard[r][c].ship) {
+                            nearbyShips++;
+                        }
+                    }
+                }
+                score -= nearbyShips * 10; // Penalty for nearby ships
+                
+                // 5. Orientation variety bonus (mix horizontal and vertical)
+                let horizontalCount = 0;
+                let verticalCount = 0;
+                for (const ship of this.computerShips) {
+                    if (ship.positions.length > 1) {
+                        if (ship.positions[0].row === ship.positions[1].row) {
+                            horizontalCount++;
+                        } else {
+                            verticalCount++;
+                        }
+                    }
+                }
+                
+                if (isHorizontal && verticalCount > horizontalCount) score += 10;
+                if (!isHorizontal && horizontalCount > verticalCount) score += 10;
+                
+                // 6. Add significant randomness to prevent predictable patterns
+                // Random multiplier between 0.8 and 1.2 to vary base scores
+                score *= (0.8 + Math.random() * 0.4);
+                
+                // Additional random bonus
+                score += Math.random() * 15;
+                
+                return score;
+            }
+
+            endGame(playerWon) {
+                this.gameStarted = false;
+                const modal = document.getElementById('gameOverModal');
+                const title = document.getElementById('modalTitle');
+                const message = document.getElementById('modalMessage');
+
+                if (playerWon) {
+                    title.textContent = '🎉 Victory!';
+                    message.textContent = `You defeated Sink Floyd! You fired ${this.stats.playerShots} shots with ${this.stats.playerHits} hits.`;
+                } else {
+                    title.textContent = '💀 Defeat!';
+                    message.textContent = `Sink Floyd sunk all your ships! Better luck next time.`;
+                }
+
+                modal.classList.add('show');
+            }
+
+            reset() {
+                this.playerBoard = this.createBoard();
+                this.computerBoard = this.createBoard();
+                this.playerShips = [];
+                this.computerShips = [];
+                this.currentShipIndex = 0;
+                this.isHorizontal = true;
+                this.gameStarted = false;
+                this.playerTurn = true;
+                this.stats = {
+                    playerShots: 0,
+                    playerHits: 0,
+                    computerShots: 0,
+                    computerHits: 0
+                };
+                this.shotHistory = [];
+                
+                // Reset AI state
+                this.aiMode = 'search';
+                this.aiHitStack = [];
+                this.aiCurrentTarget = null;
+                this.aiTargetDirection = null;
+                this.aiLastHit = null;
+                this.manualPlacementMode = false;
+                this.difficulty = document.getElementById('difficulty').value;
+
+                this.renderBoard('playerBoard', this.playerBoard, true);
+                this.renderBoard('computerBoard', this.computerBoard, false);
+                
+                // Auto-place ships by default
+                this.randomPlacement();
+                this.updateMessage('Ships placed randomly! Click "Start Game" or "Manual Placement" to arrange them yourself');
+                this.updateStats();
+                this.updateShipsStatus();
+                this.updateShotHistory();
+
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('rotateBtn').style.display = 'none';
+                document.getElementById('randomBtn').style.display = 'none';
+                document.getElementById('manualBtn').style.display = 'inline-block';
+                document.getElementById('gameOverModal').classList.remove('show');
+            }
+
+            updateMessage(text) {
+                document.getElementById('message').textContent = text;
+            }
+
+            updateStats() {
+                document.getElementById('playerShots').textContent = this.stats.playerShots;
+                document.getElementById('playerHits').textContent = this.stats.playerHits;
+                document.getElementById('computerShots').textContent = this.stats.computerShots;
+                document.getElementById('computerHits').textContent = this.stats.computerHits;
+                
+                // Calculate and display accuracy percentages
+                const playerAccuracy = this.stats.playerShots > 0 
+                    ? Math.round((this.stats.playerHits / this.stats.playerShots) * 100) 
+                    : 0;
+                const computerAccuracy = this.stats.computerShots > 0 
+                    ? Math.round((this.stats.computerHits / this.stats.computerShots) * 100) 
+                    : 0;
+                
+                document.getElementById('playerAccuracy').textContent = playerAccuracy + '%';
+                document.getElementById('computerAccuracy').textContent = computerAccuracy + '%';
+            }
+
+            updateShipsStatus() {
+                const playerStatus = document.getElementById('playerShipsStatus');
+                const computerStatus = document.getElementById('computerShipsStatus');
+
+                playerStatus.innerHTML = this.playerShips.map(ship => {
+                    const sunk = this.isShipSunk(this.playerBoard, ship);
+                    const hits = ship.positions.filter(pos => this.playerBoard[pos.row][pos.col].hit).length;
+                    const remaining = ship.size - hits;
+                    return `
+                        <div class="ship-item ${sunk ? 'sunk' : ''}">
+                            <span class="ship-name">${ship.name} (${ship.size})</span>
+                            <span class="ship-status">${sunk ? 'SUNK' : `${remaining} left`}</span>
+                        </div>
+                    `;
+                }).join('');
+
+                computerStatus.innerHTML = this.computerShips.map(ship => {
+                    const sunk = this.isShipSunk(this.computerBoard, ship);
+                    const hits = ship.positions.filter(pos => this.computerBoard[pos.row][pos.col].hit).length;
+                    const remaining = ship.size - hits;
+                    return `
+                        <div class="ship-item ${sunk ? 'sunk' : ''}">
+                            <span class="ship-name">${ship.name} (${ship.size})</span>
+                            <span class="ship-status">${sunk ? 'SUNK' : `${remaining} left`}</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            addToHistory(text, type) {
+                this.shotHistory.unshift({ text, type });
+                if (this.shotHistory.length > 50) {
+                    this.shotHistory.pop();
+                }
+                this.updateShotHistory();
+            }
+
+            updateShotHistory() {
+                const historyElement = document.getElementById('shotHistory');
+                historyElement.innerHTML = this.shotHistory.map(entry => 
+                    `<div class="shot-entry ${entry.type}">${entry.text}</div>`
+                ).join('');
+            }
+        }
+
+        // Initialize game after DOM is fully loaded
+        let game;
+        
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                try {
+                    game = new Game();
+                    console.log('Battleship game initialized successfully');
+                } catch (error) {
+                    console.error('Error initializing game:', error);
+                    alert('Error loading game. Please refresh the page.');
+                }
+            });
+        } else {
+            // DOM already loaded
+            try {
+                game = new Game();
+                console.log('Battleship game initialized successfully');
+            } catch (error) {
+                console.error('Error initializing game:', error);
+                alert('Error loading game. Please refresh the page.');
+            }
+        }
+    </script>
+</body>
+</html>
