@@ -756,7 +756,10 @@
                     return;
                 }
                 
-                boardElement.innerHTML = '';
+                const newBoardElement = boardElement.cloneNode(false);
+                boardElement.parentNode.replaceChild(newBoardElement, boardElement);
+                
+                newBoardElement.innerHTML = '';
                 
                 for (let row = 0; row < BOARD_SIZE; row++) {
                     for (let col = 0; col < BOARD_SIZE; col++) {
@@ -765,43 +768,8 @@
                         cell.dataset.row = row;
                         cell.dataset.col = col;
 
-                        if (isPlayerBoard) {
-                            cell.addEventListener('click', () => this.handlePlayerBoardClick(row, col));
-                            cell.addEventListener('mouseenter', () => this.handlePlayerBoardHover(row, col));
-                            cell.addEventListener('mouseleave', () => this.clearPreview());
-                            
-                            // Touch support for mobile
-                            cell.addEventListener('touchstart', (e) => {
-                                e.preventDefault();
-                                this.handlePlayerBoardHover(row, col);
-                            });
-                            cell.addEventListener('touchend', (e) => {
-                                e.preventDefault();
-                                this.handlePlayerBoardClick(row, col);
-                                this.clearPreview();
-                            });
-                            cell.addEventListener('touchmove', (e) => {
-                                e.preventDefault();
-                                const touch = e.touches[0];
-                                const element = document.elementFromPoint(touch.clientX, touch.clientY);
-                                if (element && element.classList.contains('cell')) {
-                                    const touchRow = parseInt(element.dataset.row);
-                                    const touchCol = parseInt(element.dataset.col);
-                                    this.handlePlayerBoardHover(touchRow, touchCol);
-                                }
-                            });
-                            
-                            if (board[row][col] && board[row][col].ship) {
-                                cell.classList.add('ship');
-                            }
-                        } else {
-                            cell.addEventListener('click', () => this.handleComputerBoardClick(row, col));
-                            
-                            // Touch support for computer board
-                            cell.addEventListener('touchend', (e) => {
-                                e.preventDefault();
-                                this.handleComputerBoardClick(row, col);
-                            });
+                        if (isPlayerBoard && board[row][col] && board[row][col].ship) {
+                            cell.classList.add('ship');
                         }
 
                         if (board[row][col] && board[row][col].hit) {
@@ -813,8 +781,79 @@
                             cell.classList.add('miss');
                         }
 
-                        boardElement.appendChild(cell);
+                        newBoardElement.appendChild(cell);
                     }
+                }
+                
+                if (isPlayerBoard) {
+                    newBoardElement.addEventListener('click', (e) => {
+                        if (e.target.classList.contains('cell')) {
+                            const row = parseInt(e.target.dataset.row);
+                            const col = parseInt(e.target.dataset.col);
+                            this.handlePlayerBoardClick(row, col);
+                        }
+                    });
+                    
+                    newBoardElement.addEventListener('mouseenter', (e) => {
+                        if (e.target.classList.contains('cell')) {
+                            const row = parseInt(e.target.dataset.row);
+                            const col = parseInt(e.target.dataset.col);
+                            this.handlePlayerBoardHover(row, col);
+                        }
+                    }, true);
+                    
+                    newBoardElement.addEventListener('mouseleave', (e) => {
+                        if (e.target.classList.contains('cell')) {
+                            this.clearPreview();
+                        }
+                    }, true);
+                    
+                    newBoardElement.addEventListener('touchstart', (e) => {
+                        if (e.target.classList.contains('cell')) {
+                            e.preventDefault();
+                            const row = parseInt(e.target.dataset.row);
+                            const col = parseInt(e.target.dataset.col);
+                            this.handlePlayerBoardHover(row, col);
+                        }
+                    }, { passive: false });
+                    
+                    newBoardElement.addEventListener('touchend', (e) => {
+                        if (e.target.classList.contains('cell')) {
+                            e.preventDefault();
+                            const row = parseInt(e.target.dataset.row);
+                            const col = parseInt(e.target.dataset.col);
+                            this.handlePlayerBoardClick(row, col);
+                            this.clearPreview();
+                        }
+                    }, { passive: false });
+                    
+                    newBoardElement.addEventListener('touchmove', (e) => {
+                        e.preventDefault();
+                        const touch = e.touches[0];
+                        const element = document.elementFromPoint(touch.clientX, touch.clientY);
+                        if (element && element.classList.contains('cell')) {
+                            const touchRow = parseInt(element.dataset.row);
+                            const touchCol = parseInt(element.dataset.col);
+                            this.handlePlayerBoardHover(touchRow, touchCol);
+                        }
+                    }, { passive: false });
+                } else {
+                    newBoardElement.addEventListener('click', (e) => {
+                        if (e.target.classList.contains('cell')) {
+                            const row = parseInt(e.target.dataset.row);
+                            const col = parseInt(e.target.dataset.col);
+                            this.handleComputerBoardClick(row, col);
+                        }
+                    });
+                    
+                    newBoardElement.addEventListener('touchend', (e) => {
+                        if (e.target.classList.contains('cell')) {
+                            e.preventDefault();
+                            const row = parseInt(e.target.dataset.row);
+                            const col = parseInt(e.target.dataset.col);
+                            this.handleComputerBoardClick(row, col);
+                        }
+                    }, { passive: false });
                 }
             }
 
